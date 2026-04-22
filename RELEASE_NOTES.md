@@ -1,3 +1,61 @@
+# MCP-NixOS: v2.4.2 Release Notes - Dotenv Startup Crash Fix
+
+## Overview
+
+MCP-NixOS v2.4.2 fixes a startup crash when the server is launched from a working directory containing a non-UTF-8 `.env` file (e.g. git-crypt ciphertext, sops-encrypted dotenv, or any binary blob). Previously, `fastmcp`'s top-level `Settings()` construction ran python-dotenv on `.env` in the process CWD at import time, and a non-UTF-8 byte anywhere in that file took the whole server down with a `UnicodeDecodeError` — before the MCP stdio handshake ever ran. Clients (Claude Code, opencode, Roo, Pi, etc.) just saw mcp-nixos fail to initialise.
+
+## Changes in v2.4.2
+
+### 🔧 Bug Fixes
+
+- **Survive non-UTF-8 `.env` in CWD** (#144, #145): `mcp_nixos/__init__.py` now defaults `FASTMCP_ENV_FILE` to `os.devnull` via `os.environ.setdefault`, before any submodule imports fastmcp. mcp-nixos does not read any values from fastmcp's `.env` lookup, so pointing fastmcp at a known-empty path sidesteps the crash without behavior loss. Users who legitimately need a fastmcp dotenv can still set `FASTMCP_ENV_FILE` explicitly and it will be respected.
+
+### 🧪 Tests
+
+- Added `tests/test_env_file_safety.py` — three subprocess-based regression tests that spawn fresh Python processes to exercise import-time behavior: non-UTF-8 `.env` in CWD → clean import; explicit `FASTMCP_ENV_FILE` override preserved; unset `FASTMCP_ENV_FILE` defaults to `os.devnull`.
+
+### 📚 Documentation
+
+- Website migrated from Next.js + Tailwind to VitePress 1.6 with a small custom theme preserving the NixOS brand palette (#143). No behavioral change to the Python package — this only affects the mcp-nixos.io marketing site.
+
+### 📦 Dependencies
+
+- No changes from previous version.
+
+## Installation
+
+```bash
+# Install with pip
+pip install mcp-nixos==2.4.2
+
+# Install with uv
+uv pip install mcp-nixos==2.4.2
+
+# Run directly with nix
+nix run github:utensils/mcp-nixos
+```
+
+## Docker Images
+
+```bash
+# Pull from Docker Hub
+docker pull utensils/mcp-nixos:2.4.2
+
+# Pull from GitHub Container Registry
+docker pull ghcr.io/utensils/mcp-nixos:2.4.2
+```
+
+## Migration Notes
+
+Drop-in replacement for v2.4.1. No configuration or API changes. If you previously worked around this bug with `FASTMCP_ENV_FILE=/dev/null` or a CWD-change wrapper, you can remove those shims — the server now ships the equivalent default.
+
+## Contributors
+
+- James Brink (@jamesbrink) — fix, tests
+- Reporter: @versality (#144) — excellent reproducer and suggested fix path
+
+---
+
 # MCP-NixOS: v2.4.1 Release Notes - Flake Overlay Compatibility
 
 ## Overview
