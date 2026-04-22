@@ -1,3 +1,53 @@
+# MCP-NixOS: v2.4.1 Release Notes - Flake Overlay Compatibility
+
+## Overview
+
+MCP-NixOS v2.4.1 fixes the `fastmcp3` Nix flake overlay for downstream consumers whose nixpkgs does not contain `griffelib` or `uncalled-for`. Both packages were added to nixos-unstable on 2026-03-18 and are absent from stable (`nixos-25.11`) and older unstable pins. No runtime, API, or Python-package changes — this release only affects Nix flake consumers.
+
+## Changes in v2.4.1
+
+### 🔧 Bug Fixes
+
+- **Flake overlay compatibility** (#135, #136): `overlays.fastmcp3` previously referenced `pyFinal.griffelib` and `pyFinal.uncalled-for` directly, which failed with `error: attribute 'griffelib' missing` for any consumer using `inputs.nixpkgs.follows = "nixpkgs"` against a nixpkgs that predates those packages. The overlay now guards both references with `or` fallbacks that `callPackage` local derivations (`nix/griffelib.nix`, `nix/uncalled-for.nix`) when the consumer's nixpkgs lacks them. Consumers on current unstable continue to use the upstream packages unchanged — the fallback path only triggers when the attribute is missing.
+
+### 📦 Dependencies
+
+- No changes from previous version.
+
+## Installation
+
+```bash
+# Install with pip
+pip install mcp-nixos==2.4.1
+
+# Install with uv
+uv pip install mcp-nixos==2.4.1
+
+# Run directly with nix
+nix run github:utensils/mcp-nixos
+```
+
+## Docker Images
+
+```bash
+# Pull from Docker Hub
+docker pull utensils/mcp-nixos:2.4.1
+
+# Pull from GitHub Container Registry
+docker pull ghcr.io/utensils/mcp-nixos:2.4.1
+```
+
+## Migration Notes
+
+Drop-in replacement for v2.4.0. If you are a Nix flake consumer who pinned `v2.4.0` with `inputs.nixpkgs.follows` against a stable or older nixpkgs, bump to `v2.4.1` to unblock the build. PyPI and Docker consumers see no behavioral change.
+
+## Contributors
+
+- James Brink (@utensils) — overlay fix
+- Reporter: @rolfst (#135) — flagged the downstream breakage
+
+---
+
 # MCP-NixOS: v2.4.0 Release Notes - FastMCP 3.x Upgrade
 
 ## Overview
