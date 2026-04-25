@@ -1,3 +1,65 @@
+# MCP-NixOS: v2.4.3 Release Notes - LLM Discoverability
+
+## Overview
+
+MCP-NixOS v2.4.3 makes the server measurably easier for LLMs to discover and use correctly. When asked Nix-flavored questions, models were reaching for `Bash` (`gh api`, `curl`, `nix search`) before considering this MCP — even though it would have answered faster and with less code. This release closes that gap with a server-level instructions string, an INTENTS → CALLS recipe block, deterministic `action=info` matching, and per-channel revision metadata. No breaking changes.
+
+## Changes in v2.4.3
+
+### ✨ Added
+
+- **Server-level `instructions`** (#146, #147): The FastMCP server now ships an `instructions` string that is surfaced to clients via the MCP `InitializeResult`. Hosts render it alongside tool schemas, priming the model on when to reach for this server vs. Bash / web search / scraping `search.nixos.org`. Includes intent triggers (mentions of package names, attribute paths, NixOS / home-manager / darwin options, channel names, flake inputs, `/nix/store/` paths) and a JSON-shaped recipe block.
+- **INTENTS → CALLS recipe in the `nix` tool docstring** (#147): Real user phrasings ("is package X in channel Y?", "search NixOS options for X", "does X have a binary cache?") mapped to exact JSON call shapes. Cross-references `nix_versions` for history queries.
+- **Per-channel nixpkgs HEAD commit in `action=channels`** (#147): When the commit is embedded in the ES index name, output labels it `Revision (indexed): <sha>` (safe to compare against `nix_versions`). Otherwise a best-effort GitHub API fetch labels it `Branch HEAD: <sha> (upstream; may be ahead of indexed data)`. Cached per branch with a 10-minute TTL so long-running servers don't return stale revisions.
+
+### 🔧 Fixed
+
+- **Silent fuzzy match in `action=info` for packages** (#146, #147): Previously `{"action": "info", "query": "firefox"}` could arbitrarily return `firefox-esr` because `term: pname=firefox` matches three packages (firefox, firefox-esr, firefox-mobile) and `size:1` picked one non-deterministically. Match now prioritises exact attribute path, then exact pname; when multiple attrs share a pname, prefers the canonical entry (attr == pname) and explicitly flags the disambiguation in the response with a copy-pasteable JSON retry hint. Non-canonical tie-breaks sort by attribute name so repeated calls are deterministic.
+- **Disambiguation hint emits a copy-pasteable JSON object** (#147): The pname-collision retry hint previously used a `action=info, query='X'` pseudo-call shape that did not match the JSON-object form models actually send.
+
+### 🛠️ Internal
+
+- GitHub API call now sets a `User-Agent: mcp-nixos/<version>` header for traceability and rate-limit diagnostics.
+- Channel branch revision lookups defensively handle non-JSON 200 responses and fall back to the stale cached value rather than bubbling the error up to `action=channels`.
+
+### 🧪 Tests
+
+- 12 new unit tests covering attr-first match priority, pname ambiguity signaling and deterministic tie-break, single-pname-hit cleanliness, indexed vs. branch-HEAD revision labeling, TTL refresh and cache-hit paths, JSON-decode failure fallback, server instructions presence, and JSON call-shape consistency. Total tests: 348 (was 336).
+
+## Installation
+
+```bash
+# Install with pip
+pip install mcp-nixos==2.4.3
+
+# Install with uv
+uv pip install mcp-nixos==2.4.3
+
+# Run directly with nix
+nix run github:utensils/mcp-nixos
+```
+
+## Docker Images
+
+```bash
+# Pull from Docker Hub
+docker pull utensils/mcp-nixos:2.4.3
+
+# Pull from GitHub Container Registry
+docker pull ghcr.io/utensils/mcp-nixos:2.4.3
+```
+
+## Migration Notes
+
+Drop-in replacement for v2.4.2. No configuration or API changes. The biggest user-visible behavior change is that `action=info` for an ambiguous pname (e.g. `firefox`) now returns the canonical attribute deterministically instead of an arbitrary one — if you were relying on the old behavior, pass an explicit attribute path.
+
+## Contributors
+
+- James Brink (@jamesbrink) — design, implementation, tests
+- Codex / Copilot / CodeRabbit — automated peer reviews on #147
+
+---
+
 # MCP-NixOS: v2.4.2 Release Notes - Dotenv Startup Crash Fix
 
 ## Overview
